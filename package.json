@@ -1,0 +1,41 @@
+{
+  "name": "twitter-bot",
+  "version": "0.0.1",
+  "description": "All the twitter logic for the Wise project",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "nodemon",
+    "build": "tsc",
+    "tslint": "tslint --project tsconfig.json",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Wise-Badges/twitter-bot.git"
+  },
+  "keywords": [
+    "open-badge",
+    "badges",
+    "typescript",
+    "api"
+  ],
+  "author": "Wise team <wise@osoc.be>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Wise-Badges/twitter-bot/issues"
+  },
+  "homepage": "https://github.com/Wise-Badges/twitter-bot#readme",
+  "devDependencies": {
+    "@types/express": "^4.17.7",
+    "nodemon": "^2.0.4",
+    "prettier": "^2.0.5",
+    "ts-node": "^8.10.2",
+    "tslint": "^6.1.2",
+    "tslint-config-airbnb": "^5.11.2",
+    "tslint-config-prettier": "^1.18.0",
+    "typescript": "^3.9.6"
+  },
+  "dependencies": {
+    "express": "^4.17.1"
+  }
+}
