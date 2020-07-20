@@ -21,3 +21,8 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 ## License
 
 [MIT](https://choosealicense.com/licenses/mit/)
+
+## Notes
+
+We werken nu met screen_name, opzich zouden we ook met de twitter user 'id_str' kunnen werken waardoor we altijd 100% zeker de juiste gebruiker hebben want de 'screen_name' kan je wijzigen.
+
