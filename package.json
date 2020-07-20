@@ -1,0 +1,26 @@
+{
+  "name": "twitter-bot",
+  "version": "0.0.1",
+  "description": "All the twitter logic for the Wise project",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Wise-Badges/twitter-bot.git"
+  },
+  "keywords": [
+    "open-badge",
+    "badges",
+    "twitter",
+    "api"
+  ],
+  "author": "Wise team <wise@osoc.be>",
+  "license": "MIT",
+  "homepage": "https://github.com/Wise-Badges/twitter-bot#readme",
+  "dependencies": {
+    "dotenv": "^8.2.0",
+    "twitter-autohook": "^1.7.1"
+  }
+}
