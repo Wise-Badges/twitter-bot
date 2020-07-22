@@ -89,7 +89,3 @@ lerna-debug.log
 # System Files
 .DS_Store
 Thumbs.db
-
-#own files
-./mention.json
-./mention2.json

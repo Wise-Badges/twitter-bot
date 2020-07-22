@@ -1,19 +1,20 @@
-const Twit = require('twit'); 
+const Twit = require("twit");
 var fs = require("fs");
 var axios = require("axios");
 require("dotenv").config();
+const imageToBase64 = require("image-to-base64");
 
-const twit = new Twit({
-  consumer_key:         process.env.TWITTER_CONSUMER_KEY,
-  consumer_secret:      process.env.TWITTER_CONSUMER_SECRET,
-  access_token:         process.env.TWITTER_ACCESS_TOKEN,
-  access_token_secret:  process.env.TWITTER_ACCESS_TOKEN_SECRET
-}); 
+const T = new Twit({
+  consumer_key: process.env.TWITTER_CONSUMER_KEY,
+  consumer_secret: process.env.TWITTER_CONSUMER_SECRET,
+  access_token: process.env.TWITTER_ACCESS_TOKEN,
+  access_token_secret: process.env.TWITTER_ACCESS_TOKEN_SECRET,
+});
 
 let globalData;
 
 try {
-  const data = fs.readFileSync("mention2.json", "utf8");
+  const data = fs.readFileSync("mentions.json", "utf8");
   // console.log(data);
   globalData = data;
 } catch (e) {
@@ -21,19 +22,11 @@ try {
 }
 
 function getSenderName(tweet) {
-  return tweet.tweet_create_events[0].user.name;
+  return tweet.user.name;
 }
 
 function getSenderUrl(tweet) {
-  return "https://twitter.com/" + tweet.tweet_create_events[0].user.screen_name;
-}
-
-function getSender(tweet) {
-  return {
-    senderName: tweet.tweet_create_events[0].user.name,
-    senderUrl:
-      "https://twitter.com/" + tweet.tweet_create_events[0].user.screen_name,
-  };
+  return "https://twitter.com/" + tweet.user.screen_name;
 }
 
 async function getBadgeclasses() {
@@ -44,41 +37,58 @@ async function getBadgeclasses() {
 }
 
 async function getBadge(tweet) {
-  const tweetBadgeTag = tweet.tweet_create_events[0].entities.hashtags[0].text;
+  let tweetBadgeTag;
+
+  if(tweet.entities.hashtags[0] in tweet){
+    tweetBadgeTag = tweet.entities.hashtags[0].text;
+  }
+  else{
+    tweetBadgeTag = 'TestBadge';
+
+  }
 
   const response = await getBadgeclasses();
 
   for (i = 0; i < response.length; i++) {
     if (response[i].tag.toLowerCase() === tweetBadgeTag.toLowerCase()) {
       const badgeID = response[i].id;
-      console.log(badgeID);
+      // console.log(badgeID);
       return badgeID;
     }
   }
-  return Error;
+  return response[0].id;
 }
 
 function getReceiver(tweet) {
-  const user_mentions = tweet.tweet_create_events[0].entities.user_mentions;
+  const user_mentions = tweet.entities.user_mentions;
 
-  if (user_mentions[0].id_str == process.env.TWITTER_BOT_ID_STR) {
+  if (user_mentions[1]) {
+    if (user_mentions[0].id_str == process.env.TWITTER_BOT_ID_STR) {
+      return {
+        receiverName: user_mentions[1].name,
+        receiverUrl: "https://twitter.com/" + user_mentions[1].screen_name,
+      };
+    } else {
+      return {
+        receiverName: user_mentions[0].name,
+        receiverUrl: "https://twitter.com/" + user_mentions[0].screen_name,
+      };
+    }
+  }else{
     return {
-      receiverName: user_mentions[1].name,
-      receiverUrl: "https://twitter.com/" + user_mentions[1].screen_name,
-    };
-  } else {
-    return {
-      receiverName: user_mentions[0].name,
-      receiverUrl: "https://twitter.com/" + user_mentions[0].screen_name,
+      receiverName: "Error",
+      receiverUrl: "https://twitter.com/" + "Error",
     };
   }
 }
 
 function getTweetUrl(tweet) {
-  return getSenderUrl(tweet) + "/status/" + tweet.tweet_create_events[0].id_str;
+  return getSenderUrl(tweet) + "/status/" + tweet.id_str;
 }
 
-async function filterData(event) {
+async function filterData(file) {
+  // const event = file.tweet_create_events[0];
+  const event = file;
   return {
     receiver: getReceiver(event).receiverUrl,
     receiverName: getReceiver(event).receiverName,
@@ -91,7 +101,7 @@ async function filterData(event) {
   };
 }
 
-function sendTweet(rec, sen, tag, html, img) {
+function sendTweet(rec, sen, tag, html, b64content, imgDescription) {
   const msg =
     "Congratulations @" +
     rec +
@@ -102,50 +112,83 @@ function sendTweet(rec, sen, tag, html, img) {
     ". Now cherish and embrace your WiseBadge here: " +
     html;
 
-    var params = { status: msg };
+  // first we must post the media to Twitter
+  T.post("media/upload", { media_data: b64content }, function (
+    err,
+    data,
+    response
+  ) {
+    // now we can assign alt text to the media, for use by screen readers and
+    // other text-based presentations and interpreters
+    var mediaIdStr = data.media_id_string;
+    var altText = imgDescription;
+    var meta_params = { media_id: mediaIdStr, alt_text: { text: altText } };
 
-    twit.post('statuses/update', params, function (err, data, response) {
-      console.log(data);
-      console.log("TWITTER RESPONSE "+JSON.stringify(response));
-   });
+    T.post("media/metadata/create", meta_params, function (
+      err,
+      data,
+      response
+    ) {
+      if (!err) {
+        // now we can reference the media and post a tweet (media will attach to the tweet)
+        var params = { status: msg, media_ids: [mediaIdStr] };
 
-
+        T.post("statuses/update", params, function (err, data, response) {
+          console.log(getTweetUrl(data));
+        });
+      }
+    });
+  });
 }
 
 // ----------------------------------------------
 
-const webhookMention = JSON.parse(globalData);
-filterData(webhookMention)
-  .then(async (data) => {
-    // console.log(data);
-    const receiver_screen_name = /[^/]*$/.exec(data.receiver)[0];
-    const sender_screen_name = /[^/]*$/.exec(data.sender)[0];
+console.log(globalData);
+const JSONwebhookMentions = JSON.parse(globalData);
+const webhookMentions = JSONwebhookMentions.tweets;
 
-    const responsePost = await axios.post(
-      process.env.API_URL + "/assertion",
-      data
-    );
-    // console.log(responsePost.data);
-    const responsePostHtml = responsePost.data.html;
-    const responsePostJson = responsePost.data.json;
+for (i = 0; i < webhookMentions.length; i++) {
+  var webhookMention = webhookMentions[i];
+  // console.log(webhookMention)
 
-    const responseAssertion = await axios.get(responsePostJson);
-    // console.log(responseAssertion.data);
+  filterData(webhookMention)
+    .then(async (data) => {
+      // console.log(data);
+      const receiver_screen_name = /[^/]*$/.exec(data.receiver)[0];
+      const sender_screen_name = /[^/]*$/.exec(data.sender)[0];
 
-    const responseBadgeclass = await axios.get(responseAssertion.data.badge);
-    // console.log(responseBadgeclass.data);
-    const responseBadgeclassTag = responseBadgeclass.data.tag;
-    const responseBadgeclassImage = responseBadgeclass.data.image;
+      const responsePost = await axios.post(
+        process.env.API_URL + "/assertion",
+        data
+      );
+      // console.log(responsePost.data);
+      const responsePostHtml = responsePost.data.html;
+      const responsePostJson = responsePost.data.json;
 
-    sendTweet(
-      receiver_screen_name,
-      sender_screen_name,
-      responseBadgeclassTag,
-      responsePostHtml,
-      responseBadgeclassImage
-    );
+      const responseAssertion = await axios.get(responsePostJson);
+      // console.log(responseAssertion.data);
 
-  })
-  .catch(function (error) {
-    console.log(error);
-  });
+      const responseBadgeclass = await axios.get(responseAssertion.data.badge);
+      // console.log(responseBadgeclass.data);
+      const responseBadgeclassTag = responseBadgeclass.data.tag;
+      const responseBadgeclassImage = responseBadgeclass.data.image;
+      const responseBadgeclassNameDescription =
+        responseBadgeclass.data.name +
+        " - " +
+        responseBadgeclass.data.description;
+
+      const b64content = await imageToBase64(responseBadgeclassImage);
+
+      sendTweet(
+        receiver_screen_name,
+        sender_screen_name,
+        responseBadgeclassTag,
+        responsePostHtml,
+        b64content,
+        responseBadgeclassNameDescription
+      );
+    })
+    .catch(function (error) {
+      console.log(error);
+    });
+}
