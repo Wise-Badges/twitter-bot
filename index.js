@@ -1,16 +1,73 @@
 //Imports
 require('dotenv').config();
 const { Autohook } = require('twitter-autohook');
+const fs = require('fs');
 const handleLike = require('./handlers/handleLike');
 const handleMention = require('./handlers/handleMention');
+const handleReply = require('./handlers/handleReply');
+let i = 0;
+
+const path = require('path');
+
+const directory = './events';
+
+fs.readdir(directory, (err, files) => {
+  if (err) throw err;
+
+  for (const file of files) {
+    fs.unlink(path.join(directory, file), (err) => {
+      if (err) throw err;
+    });
+  }
+});
+
+function isLike(event) {
+  if ('favorite_events' in event) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+function isMention(event) {
+  if ('user_has_blocked' in event) {
+    const replyToStatus = event.tweet_create_events[0].in_reply_to_status_id_str;
+    if (replyToStatus == null) {
+      return true;
+    }
+  } else {
+    return false;
+  }
+}
+
+function isReply(event) {
+  if ('tweet_create_events' in event) {
+    const replyToUser = event.tweet_create_events[0].in_reply_to_user_id_str;
+    const replyingUser = event.tweet_create_events[0].user.id_str;
+    if (
+      replyToUser === process.env.TWITTER_BOT_ID_STR &&
+      replyingUser !== process.env.TWITTER_BOT_ID_STR
+    ) {
+      return true;
+    }
+  } else {
+    return false;
+  }
+}
 
 const listenToEvents = async (event) => {
   console.log('You received an event!');
+  fs.writeFileSync(`./events/event-${i}.json`, JSON.stringify(event));
+  i += 1;
 
   let handleEvent;
-  if ('user_has_blocked' in event) handleEvent = handleMention;
-  else if ('favorite_events' in event) handleEvent = handleLike;
-  else handleEvent = () => {};
+  if (isLike(event)) {
+    handleEvent = handleLike;
+  } else if (isMention(event)) {
+    handleEvent = handleMention;
+  } else if (isReply(event)) {
+    handleEvent = handleReply;
+  } else handleEvent = () => {};
 
   try {
     await handleEvent(event);

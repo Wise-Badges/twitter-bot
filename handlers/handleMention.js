@@ -1,6 +1,6 @@
-const axios = require("axios");
+const axios = require('axios');
 const fs = require('fs');
-const imageToBase64 = require("image-to-base64");
+const imageToBase64 = require('image-to-base64');
 const Twit = require('twit');
 
 const T = new Twit({
@@ -10,21 +10,20 @@ const T = new Twit({
   access_token_secret: process.env.TWITTER_ACCESS_TOKEN_SECRET
 });
 
-
 async function getBadgeclasses() {
   const resp = await axios.get(process.env.API_URL + '/badgeclasses');
   const badgeClasses = resp.data.data;
   return badgeClasses;
 }
 
-//TODO fix this
 async function getBadge(tweet) {
+  //console.log(tweet.entities);
   let tweetBadgeTag;
 
-  if (tweet.entities.hashtags[0] in tweet) {
+  if (tweet.entities.hashtags.length >= 1) {
     tweetBadgeTag = tweet.entities.hashtags[0].text;
   } else {
-    tweetBadgeTag = 'LeadingLady';
+    throw new Error('No hashtag is found v1');
   }
 
   const response = await getBadgeclasses();
@@ -32,18 +31,16 @@ async function getBadge(tweet) {
   for (i = 0; i < response.length; i++) {
     if (response[i].tag.toLowerCase() === tweetBadgeTag.toLowerCase()) {
       const badgeID = response[i].id;
-      // console.log(badgeID);
       return badgeID;
     }
   }
-  return response[0].id;
+  throw new Error('No hashtag is found v2');
 }
 
-//TODO what to do if there is no extra mention in the tweet
 function getReceiver(tweet) {
   const user_mentions = tweet.entities.user_mentions;
 
-  if (user_mentions[1]) {
+  if (user_mentions.length >= 2) {
     if (user_mentions[0].id_str == process.env.TWITTER_BOT_ID_STR) {
       return {
         receiverName: user_mentions[1].name,
@@ -56,22 +53,19 @@ function getReceiver(tweet) {
       };
     }
   } else {
-    return {
-      receiverName: 'Error',
-      receiverUrl: 'https://twitter.com/' + 'Error'
-    };
+    throw new Error('Not enough mentions!');
   }
 }
 
 function sendTweet(rec, sen, tag, html, b64content, imgDescription) {
-  const msg = `Congratulations @${rec} ! @${sen} issued you a #${tag}. Now cherish and embrace your WiseBadge here: ${html}`;
+  const msg = `@${rec} ! @${sen} issued you a #${tag}. Now cherish and embrace your WiseBadge here: ${html}`;
 
   T.post('media/upload', { media_data: b64content }, function (err, data) {
     var mediaIdStr = data.media_id_string;
     var altText = imgDescription;
     var meta_params = { media_id: mediaIdStr, alt_text: { text: altText } };
 
-    T.post('media/metadata/create', meta_params, function (err) {      
+    T.post('media/metadata/create', meta_params, function (err) {
       if (!err) {
         var params = { status: msg, media_ids: [mediaIdStr] };
         T.post('statuses/update', params, function (err, data) {
@@ -83,57 +77,51 @@ function sendTweet(rec, sen, tag, html, b64content, imgDescription) {
 }
 
 async function filterData(mention) {
-    const tweet = mention.tweet_create_events[0];
-    
-    return {
-        receiver: getReceiver(tweet).receiverUrl,
-        receiverName: getReceiver(tweet).receiverName,
-        sender: `https://twitter.com/${tweet.user.screen_name}`,
-        senderName: tweet.user.name,
-        platform: "twitter",
-        senderUrl: `https://twitter.com/${tweet.user.screen_name}`,
-        reason: `https://twitter.com/${tweet.user.screen_name}/status/${tweet.id_str}`,
-        badgeclass: await getBadge(tweet)
-    };
+  const tweet = mention.tweet_create_events[0];
+
+  return {
+    receiver: getReceiver(tweet).receiverUrl,
+    receiverName: getReceiver(tweet).receiverName,
+    sender: `https://twitter.com/${tweet.user.screen_name}`,
+    senderName: tweet.user.name,
+    platform: 'twitter',
+    senderUrl: `https://twitter.com/${tweet.user.screen_name}`,
+    reason: `https://twitter.com/${tweet.user.screen_name}/status/${tweet.id_str}`,
+    badgeclass: await getBadge(tweet)
+  };
 }
 
 module.exports = async (event) => {
-    const data = await filterData(event);
-    // console.log(data);
-    const receiver_screen_name = /[^/]*$/.exec(data.receiver)[0];
-    const sender_screen_name = /[^/]*$/.exec(data.sender)[0];
+  const data = await filterData(event);
+  // console.log(data);
+  const receiver_screen_name = /[^/]*$/.exec(data.receiver)[0];
+  const sender_screen_name = /[^/]*$/.exec(data.sender)[0];
 
-    const responsePost = await axios.post(
-      process.env.API_URL + "/assertion",
-      data
-    );
-    // console.log(responsePost.data);
-    const responsePostHtml = responsePost.data.html;
-    const responsePostJson = responsePost.data.json;
+  const responsePost = await axios.post(process.env.API_URL + '/assertion', data);
+  // console.log(responsePost.data);
+  const responsePostHtml = responsePost.data.html;
+  const responsePostJson = responsePost.data.json;
+  console.log(responsePostJson);
 
-    const responseAssertion = await axios.get(responsePostJson);
-    // console.log(responseAssertion.data);
+  const responseAssertion = await axios.get(responsePostJson);
+  // console.log(responseAssertion.data);
 
-    const responseBadgeclass = await axios.get(
-      responseAssertion.data.badge
-    );
-    // console.log(responseBadgeclass.data);
-    const responseBadgeclassTag = responseBadgeclass.data.tag;
-    const responseBadgeclassImage =
-      "https://wisebadges.wabyte.com/leading_lady.png";
-    // const responseBadgeclassImage = responseBadgeclass.data.image;
-    const responseBadgeclassNameDescription = `${responseBadgeclass.data.name} - ${responseBadgeclass.data.description}`;
+  const responseBadgeclass = await axios.get(responseAssertion.data.badge);
+  // console.log(responseBadgeclass.data);
+  const responseBadgeclassTag = responseBadgeclass.data.tag;
+  const responseBadgeclassImage = responseBadgeclass.data.image;
+  const responseBadgeclassNameDescription = `${responseBadgeclass.data.name} - ${responseBadgeclass.data.description}`;
 
-    const b64content = await imageToBase64(responseBadgeclassImage);
+  const b64content = await imageToBase64(responseBadgeclassImage);
 
-    sendTweet(
-      receiver_screen_name,
-      sender_screen_name,
-      responseBadgeclassTag,
-      responsePostHtml,
-      b64content,
-      responseBadgeclassNameDescription
-    );
+  sendTweet(
+    receiver_screen_name,
+    sender_screen_name,
+    responseBadgeclassTag,
+    responsePostHtml,
+    b64content,
+    responseBadgeclassNameDescription
+  );
 
-    fs.writeFileSync("mention.json", JSON.stringify(event));
-}
+  fs.writeFileSync('mention.json', JSON.stringify(event));
+};
