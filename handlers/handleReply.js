@@ -1,5 +1,4 @@
 const axios = require('axios');
-const fs = require('fs');
 const Twit = require('twit');
 
 const T = new Twit({
@@ -34,7 +33,6 @@ function checkDeleteCommand(text) {
   var str = text.toLowerCase();
 
   for (let index in deleteCommands) {
-    console.log(deleteCommands[index], str);
     var n = str.search(deleteCommands[index]);
     if (n != -1) {
       return true;
@@ -65,7 +63,7 @@ module.exports = async (event) => {
   const data = await filterReplyData(event);
 
   if (checkDeleteCommand(data.text) == false) {
-    throw new Error('niet in lijst van delete commands');
+    throw new Error('Not in the list of Delete-commands');
   }
 
   const replierID = data.replierID;
@@ -77,23 +75,15 @@ module.exports = async (event) => {
   const tweetOriginal = dataOriginalTweet.data;
 
   if (checkPermission(tweetOriginal, replierID) == false) {
-    throw new Error('niet in lijst van mentioned personen');
+    throw new Error('Not in the list of mentioned people.');
   }
-  console.log(tweetOriginal);
-  fs.writeFileSync('tweetOriginal.json', JSON.stringify(tweetOriginal));
-
   const urls = getUrls(tweetOriginal);
   const htmlUrl = urls[0].expanded_url;
   const numID = htmlUrl.split('/').pop();
   const assertionID = `${process.env.API_URL}/assertion/${numID}`
   await axios.delete(assertionID);
   console.log('deleted: ', assertionID)
-
   const deleteTweetID = tweetOriginal.id_str;
-
-  T.post('statuses/destroy/:id', { id: deleteTweetID }, function (err, data, response) {
-    console.log(data)
-  })
-
-  fs.writeFileSync('reply.json', JSON.stringify(event));
+  await T.post('statuses/destroy/:id', { id: deleteTweetID })
+  console.log('deleted: ', `https://twitter.com/${tweetOriginal.user.screen_name}/status/${tweetOriginal.id_str}`)
 };

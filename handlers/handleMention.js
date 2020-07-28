@@ -1,5 +1,4 @@
 const axios = require('axios');
-const fs = require('fs');
 const imageToBase64 = require('image-to-base64');
 const Twit = require('twit');
 
@@ -57,8 +56,18 @@ function getReceiver(tweet) {
   }
 }
 
-function sendTweet(rec, sen, tag, html, b64content, imgDescription) {
-  const msg = `@${rec} ! @${sen} issued you a #${tag}. Now cherish and embrace your WiseBadge here: ${html}`;
+function randomIntFromInterval(min, max) {
+  // min and max included
+  return Math.floor(Math.random() * (max - min + 1) + min);
+}
+
+function sendTweet(rec, sen, tag, html, b64content, imgDescription, mentionID, sender) {
+  const msgs = [
+    `@${rec} ! @${sen} issued you a #${tag}. Now cherish and embrace your WiseBadge here: ${html}`,
+    `@${rec} ! Get your party started, because @${sen} sent you a #${tag}. Turn up the volume and give yourself a warm applause. This is your WiseBadge : ${html}`,
+    `@${rec} ! Yes, the rumours are true @${sen} awarded you a #${tag}. Speech ready? Open your one and only WiseBadge and share it with the world : ${html}`
+  ];
+  const msg = msgs[randomIntFromInterval(1, 3) - 1];
 
   T.post('media/upload', { media_data: b64content }, function (err, data) {
     var mediaIdStr = data.media_id_string;
@@ -69,7 +78,20 @@ function sendTweet(rec, sen, tag, html, b64content, imgDescription) {
       if (!err) {
         var params = { status: msg, media_ids: [mediaIdStr] };
         T.post('statuses/update', params, function (err, data) {
-          console.log(`https://twitter.com/${data.user.screen_name}/status/${data.id_str}`);
+          const urlTweetBot = `https://twitter.com/${data.user.screen_name}/status/${data.id_str}`;
+          console.log(urlTweetBot);
+
+          const replyToMentionWithTweetURLfromBotResponse = false;
+          if (replyToMentionWithTweetURLfromBotResponse) {
+            const params = {
+              status: `@${sender} ${urlTweetBot}`,
+              in_reply_to_status_id: '' + mentionID
+            };
+            T.post('statuses/update', params, function (err, data) {
+              const urlTweetThis = `https://twitter.com/${data.user.screen_name}/status/${data.id_str}`;
+              console.log(urlTweetThis);
+            });
+          }
         });
       }
     });
@@ -85,10 +107,16 @@ async function filterData(mention) {
     sender: `https://twitter.com/${tweet.user.screen_name}`,
     senderName: tweet.user.name,
     platform: 'twitter',
-    senderUrl: `https://twitter.com/${tweet.user.screen_name}`,
     reason: `https://twitter.com/${tweet.user.screen_name}/status/${tweet.id_str}`,
     badgeclass: await getBadge(tweet)
   };
+}
+
+function likeMention(mention) {
+  const tweet = mention.tweet_create_events[0];
+
+  console.log(`https://twitter.com/${tweet.user.screen_name}/status/${tweet.id_str}`);
+  T.post('favorites/create', { id: tweet.id_str });
 }
 
 module.exports = async (event) => {
@@ -97,31 +125,37 @@ module.exports = async (event) => {
   const receiver_screen_name = /[^/]*$/.exec(data.receiver)[0];
   const sender_screen_name = /[^/]*$/.exec(data.sender)[0];
 
+  likeMention(event);
+
   const responsePost = await axios.post(process.env.API_URL + '/assertion', data);
   // console.log(responsePost.data);
-  const responsePostHtml = responsePost.data.html;
-  const responsePostJson = responsePost.data.json;
-  console.log(responsePostJson);
 
-  const responseAssertion = await axios.get(responsePostJson);
+  console.log(responsePost.data.json);
+  const responseAssertion = await axios.get(responsePost.data.json);
   // console.log(responseAssertion.data);
 
   const responseBadgeclass = await axios.get(responseAssertion.data.badge);
   // console.log(responseBadgeclass.data);
-  const responseBadgeclassTag = responseBadgeclass.data.tag;
-  const responseBadgeclassImage = responseBadgeclass.data.image;
-  const responseBadgeclassNameDescription = `${responseBadgeclass.data.name} - ${responseBadgeclass.data.description}`;
 
-  const b64content = await imageToBase64(responseBadgeclassImage);
+  const b64content = await imageToBase64(responseBadgeclass.data.image);
 
   sendTweet(
     receiver_screen_name,
     sender_screen_name,
-    responseBadgeclassTag,
-    responsePostHtml,
+    responseBadgeclass.data.tag,
+    responsePost.data.html,
     b64content,
-    responseBadgeclassNameDescription
+    `${responseBadgeclass.data.name} - ${responseBadgeclass.data.description}`,
+    event.tweet_create_events[0].id_str,
+    data.sender.split('/').pop()
   );
 
-  fs.writeFileSync('mention.json', JSON.stringify(event));
+  /*   var params = {
+    status: `More: ${urlTweetBot}`,
+    in_reply_to_status_id: '' + event.tweet_create_events[0].id_str
+  };
+
+  T.post('statuses/update', params, function (err, data) {
+    console.log(data);
+  }); */
 };
