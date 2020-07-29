@@ -24,5 +24,5 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 
 ## Notes
 
-We werken nu met screen_name, opzich zouden we ook met de twitter user 'id_str' kunnen werken waardoor we altijd 100% zeker de juiste gebruiker hebben want de 'screen_name' kan je wijzigen.
+We now work with screen_name, for example we could also work with the twitter user 'id_str' so we are always 100% sure we have the right user because you can change the 'screen_name'.
 
