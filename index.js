@@ -7,7 +7,7 @@ const handleReply = require('./handlers/handleReply');
 const handleDeleteMention = require('./handlers/handleDeleteMention');
 const fs = require('fs');
 
-const fileWriting = true;
+const fileWriting = false;
 let fileWritingIndex = 0;
 if (fileWriting) {
   const directory = './events';
