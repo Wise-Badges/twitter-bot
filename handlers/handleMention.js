@@ -122,8 +122,8 @@ function likeMention(mention) {
 module.exports = async (event) => {
   const data = await filterData(event);
   // console.log(data);
-  const receiver_screen_name = /[^/]*$/.exec(data.receiver)[0];
-  const sender_screen_name = /[^/]*$/.exec(data.sender)[0];
+  const receiver_screen_name = data.receiver.split('/').pop();
+  const sender_screen_name = data.sender.split('/').pop();
 
   likeMention(event);
 
