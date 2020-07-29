@@ -61,7 +61,7 @@ function randomIntFromInterval(min, max) {
   return Math.floor(Math.random() * (max - min + 1) + min);
 }
 
-function sendTweet(rec, sen, tag, html, b64content, imgDescription, mentionID, sender) {
+async function sendTweet(rec, sen, tag, html, b64content, imgDescription, mentionID, sender) {
   const msgs = [
     `@${rec} ! @${sen} issued you a #${tag}. Now cherish and embrace your WiseBadge here: ${html}`,
     `@${rec} ! Get your party started, because @${sen} sent you a #${tag}. Turn up the volume and give yourself a warm applause. This is your WiseBadge : ${html}`,
@@ -69,33 +69,33 @@ function sendTweet(rec, sen, tag, html, b64content, imgDescription, mentionID, s
   ];
   const msg = msgs[randomIntFromInterval(1, 3) - 1];
 
-  T.post('media/upload', { media_data: b64content }, function (err, data) {
-    var mediaIdStr = data.media_id_string;
-    var altText = imgDescription;
-    var meta_params = { media_id: mediaIdStr, alt_text: { text: altText } };
+  const mediaUploadResp = await T.post('media/upload', { media_data: b64content });
 
-    T.post('media/metadata/create', meta_params, function (err) {
-      if (!err) {
-        var params = { status: msg, media_ids: [mediaIdStr] };
-        T.post('statuses/update', params, function (err, data) {
-          const urlTweetBot = `https://twitter.com/${data.user.screen_name}/status/${data.id_str}`;
-          console.log(urlTweetBot);
+  var mediaIdStr = mediaUploadResp.data.media_id_string;
+  var altText = imgDescription;
+  var meta_params = { media_id: mediaIdStr, alt_text: { text: altText } };
 
-          const replyToMentionWithTweetURLfromBotResponse = false;
-          if (replyToMentionWithTweetURLfromBotResponse) {
-            const params = {
-              status: `@${sender} ${urlTweetBot}`,
-              in_reply_to_status_id: '' + mentionID
-            };
-            T.post('statuses/update', params, function (err, data) {
-              const urlTweetThis = `https://twitter.com/${data.user.screen_name}/status/${data.id_str}`;
-              console.log(urlTweetThis);
-            });
-          }
-        });
-      }
+  await T.post('media/metadata/create', meta_params);
+
+  var params = { status: msg, media_ids: [mediaIdStr] };
+
+  const statusesUpdateResp = await T.post('statuses/update', params);
+
+  const urlTweetFromBot = `https://twitter.com/${statusesUpdateResp.data.user.screen_name}/status/${statusesUpdateResp.data.id_str}`;
+
+  console.log(urlTweetFromBot);
+
+  const replyToMentionWithTweetURLfromBotResponse = true;
+  if (replyToMentionWithTweetURLfromBotResponse) {
+    const params = {
+      status: `@${sender} ${urlTweetFromBot}`,
+      in_reply_to_status_id: '' + mentionID
+    };
+    T.post('statuses/update', params, function (err, data) {
+      const urlTweetThis = `https://twitter.com/${data.user.screen_name}/status/${data.id_str}`;
+      console.log(urlTweetThis);
     });
-  });
+  }
 }
 
 async function filterData(mention) {
@@ -149,13 +149,4 @@ module.exports = async (event) => {
     event.tweet_create_events[0].id_str,
     data.sender.split('/').pop()
   );
-
-  /*   var params = {
-    status: `More: ${urlTweetBot}`,
-    in_reply_to_status_id: '' + event.tweet_create_events[0].id_str
-  };
-
-  T.post('statuses/update', params, function (err, data) {
-    console.log(data);
-  }); */
 };

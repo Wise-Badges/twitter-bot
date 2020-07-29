@@ -1,25 +1,22 @@
 //Imports
 require('dotenv').config();
 const { Autohook } = require('twitter-autohook');
-const fs = require('fs');
 const handleLike = require('./handlers/handleLike');
 const handleMention = require('./handlers/handleMention');
 const handleReply = require('./handlers/handleReply');
-let i = 0;
 
-const path = require('path');
-
-const directory = './events';
-
-fs.readdir(directory, (err, files) => {
-  if (err) throw err;
-
-  for (const file of files) {
-    fs.unlink(path.join(directory, file), (err) => {
-      if (err) throw err;
-    });
-  }
-});
+// const fs = require('fs');
+// let i = 0;
+// const path = require('path');
+// const directory = './events';
+// fs.readdir(directory, (err, files) => {
+//   if (err) throw err;
+//   for (const file of files) {
+//     fs.unlink(path.join(directory, file), (err) => {
+//       if (err) throw err;
+//     });
+//   }
+// });
 
 function isLike(event) {
   if ('favorite_events' in event) {
@@ -57,8 +54,8 @@ function isReply(event) {
 
 const listenToEvents = async (event) => {
   console.log('You received an event!');
-  fs.writeFileSync(`./events/event-${i}.json`, JSON.stringify(event));
-  i += 1;
+  // fs.writeFileSync(`./events/event-${i}.json`, JSON.stringify(event));
+  // i += 1;
 
   let handleEvent;
   if (isLike(event)) {
