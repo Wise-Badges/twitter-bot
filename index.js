@@ -4,19 +4,27 @@ const { Autohook } = require('twitter-autohook');
 const handleLike = require('./handlers/handleLike');
 const handleMention = require('./handlers/handleMention');
 const handleReply = require('./handlers/handleReply');
+const handleDeleteMention = require('./handlers/handleDeleteMention');
+const fs = require('fs');
 
-// const fs = require('fs');
-// let i = 0;
-// const path = require('path');
-// const directory = './events';
-// fs.readdir(directory, (err, files) => {
-//   if (err) throw err;
-//   for (const file of files) {
-//     fs.unlink(path.join(directory, file), (err) => {
-//       if (err) throw err;
-//     });
-//   }
-// });
+const fileWriting = true;
+let fileWritingIndex = 0;
+if (fileWriting) {
+  const directory = './events';
+
+  if (!fs.existsSync(directory)) {
+    fs.mkdirSync(directory);
+  }
+  const path = require('path');
+  fs.readdir(directory, (err, files) => {
+    if (err) throw err;
+    for (const file of files) {
+      fs.unlink(path.join(directory, file), (err) => {
+        if (err) throw err;
+      });
+    }
+  });
+}
 
 function isLike(event) {
   if ('favorite_events' in event) {
@@ -54,14 +62,20 @@ function isReply(event) {
 
 const listenToEvents = async (event) => {
   console.log('You received an event!');
-  // fs.writeFileSync(`./events/event-${i}.json`, JSON.stringify(event));
-  // i += 1;
+  if (fileWriting) {
+    fs.writeFileSync(`./events/event-${fileWritingIndex}.json`, JSON.stringify(event));
+    fileWritingIndex += 1;
+  }
 
   let handleEvent;
   if (isLike(event)) {
     handleEvent = handleLike;
   } else if (isMention(event)) {
-    handleEvent = handleMention;
+    if(event.tweet_create_events[0].entities.user_mentions.length >= 2) {
+      handleEvent = handleMention;
+    }else{
+      handleEvent = handleDeleteMention;
+    }
   } else if (isReply(event)) {
     handleEvent = handleReply;
   } else handleEvent = () => {};

@@ -26,7 +26,12 @@ async function filterLikeData(like) {
     return {};
   }
 
-  if ((liker.id_str === mentionedUsers[0].id_str) && (liker.id_str !== process.env.TWITTER_BOT_ID_STR) ) {
+  if(tweet.user.id_str != process.env.TWITTER_BOT_ID_STR){
+    return {};
+  }
+
+  //  if ((liker.id_str === mentionedUsers[0].id_str) && (liker.id_str !== process.env.TWITTER_BOT_ID_STR) ) {
+  if ((liker.id_str === mentionedUsers[0].id_str) || (liker.id_str == process.env.TWITTER_BOT_ID_STR) ) {
     const urls = getUrls(tweet);
     const htmlUrl = urls[0].expanded_url;
     const numID = htmlUrl.split('/').pop();
