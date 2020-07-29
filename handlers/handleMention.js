@@ -61,6 +61,14 @@ function randomIntFromInterval(min, max) {
   return Math.floor(Math.random() * (max - min + 1) + min);
 }
 
+function getUrls(tweet) {
+  if ('extended_tweet' in tweet) {
+    return tweet.extended_tweet.entities.urls;
+  } else {
+    return tweet.entities.urls;
+  }
+}
+
 async function sendTweet(rec, sen, tag, html, b64content, imgDescription, mentionID, sender) {
   const msgs = [
     `@${rec} ! @${sen} issued you a #${tag}. Now cherish and embrace your WiseBadge here: ${html}`,
@@ -77,15 +85,14 @@ async function sendTweet(rec, sen, tag, html, b64content, imgDescription, mentio
 
   await T.post('media/metadata/create', meta_params);
 
-  var params = { status: msg, media_ids: [mediaIdStr] };
-
+  var params = { status: msg, media_ids: [mediaIdStr], tweet_mode: 'extended' };
   const statusesUpdateResp = await T.post('statuses/update', params);
+  const tweetFromBot = statusesUpdateResp.data;
 
   const urlTweetFromBot = `https://twitter.com/${statusesUpdateResp.data.user.screen_name}/status/${statusesUpdateResp.data.id_str}`;
-
   console.log(urlTweetFromBot);
 
-  const replyToMentionWithTweetURLfromBotResponse = true;
+  const replyToMentionWithTweetURLfromBotResponse = false;
   if (replyToMentionWithTweetURLfromBotResponse) {
     const params = {
       status: `@${sender} ${urlTweetFromBot}`,
@@ -96,6 +103,11 @@ async function sendTweet(rec, sen, tag, html, b64content, imgDescription, mentio
       console.log(urlTweetThis);
     });
   }
+
+  return {
+    urlTweetFromBot: urlTweetFromBot,
+    tweetFromBot: tweetFromBot
+  };
 }
 
 async function filterData(mention) {
@@ -139,7 +151,7 @@ module.exports = async (event) => {
 
   const b64content = await imageToBase64(responseBadgeclass.data.image);
 
-  sendTweet(
+  const respSendTweet = await sendTweet(
     receiver_screen_name,
     sender_screen_name,
     responseBadgeclass.data.tag,
@@ -149,4 +161,15 @@ module.exports = async (event) => {
     event.tweet_create_events[0].id_str,
     data.sender.split('/').pop()
   );
+
+  // console.log(respSendTweet.tweetFromBot);
+  
+  const urls = getUrls(respSendTweet.tweetFromBot);
+  const htmlUrl = urls[0].expanded_url;
+  const numID = htmlUrl.split('/').pop();
+  const assertionID = `${process.env.API_URL}/assertion/${numID}`;
+
+  const responsePatch = await axios.patch(assertionID + '/answer', { answer: respSendTweet.urlTweetFromBot });
+
+  console.log(responsePatch.status);
 };

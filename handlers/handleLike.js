@@ -22,6 +22,10 @@ async function filterLikeData(like) {
   const liker = like.favorite_events[0].user;
   const mentionedUsers = getMentionedUsers(tweet);
 
+  if(mentionedUsers.length == 0){
+    return {};
+  }
+
   if ((liker.id_str === mentionedUsers[0].id_str) && (liker.id_str !== process.env.TWITTER_BOT_ID_STR) ) {
     const urls = getUrls(tweet);
     const htmlUrl = urls[0].expanded_url;
