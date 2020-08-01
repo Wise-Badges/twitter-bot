@@ -7,7 +7,7 @@ const handleReply = require('./handlers/handleReply');
 const handleDeleteMention = require('./handlers/handleDeleteMention');
 const fs = require('fs');
 
-const fileWriting = false;
+const fileWriting = true;
 let fileWritingIndex = 0;
 if (fileWriting) {
   const directory = './events';
@@ -71,9 +71,9 @@ const listenToEvents = async (event) => {
   if (isLike(event)) {
     handleEvent = handleLike;
   } else if (isMention(event)) {
-    if(event.tweet_create_events[0].entities.user_mentions.length >= 2) {
+    if (event.tweet_create_events[0].entities.user_mentions.length >= 2) {
       handleEvent = handleMention;
-    }else{
+    } else {
       handleEvent = handleDeleteMention;
     }
   } else if (isReply(event)) {
