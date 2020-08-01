@@ -114,7 +114,7 @@ async function filterData(mention) {
   const tweet = mention.tweet_create_events[0];
 
   return {
-    receiver: getReceiver(tweet).receiverUrl,
+    receiver: (getReceiver(tweet).receiverUrl).toLowerCase(),
     receiverName: getReceiver(tweet).receiverName,
     sender: `https://twitter.com/${tweet.user.screen_name}`,
     senderName: tweet.user.name,
