@@ -124,10 +124,13 @@ async function filterData(mention) {
   };
 }
 
+function infoMention(mention) {
+  const tweet = mention.tweet_create_events[0];
+  console.log(`https://twitter.com/${tweet.user.screen_name}/status/${tweet.id_str}`);
+}
+
 function likeMention(mention) {
   const tweet = mention.tweet_create_events[0];
-
-  console.log(`https://twitter.com/${tweet.user.screen_name}/status/${tweet.id_str}`);
   T.post('favorites/create', { id: tweet.id_str });
 }
 
@@ -137,7 +140,8 @@ module.exports = async (event) => {
   const receiver_screen_name = data.receiver.split('/').pop();
   const sender_screen_name = data.sender.split('/').pop();
 
-  likeMention(event);
+  infoMention(event);
+  // likeMention(event);
 
   const responsePost = await axios.post(process.env.API_URL + '/assertion', data);
   // console.log(responsePost.data);
